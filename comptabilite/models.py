@@ -44,15 +44,15 @@ class ExerciceComptable(models.Model):
             models.UniqueConstraint(fields=['est_actuel'], condition=models.Q(est_actuel=True), name='unique_exercice_actuel')
         ]
 
+    def __str__(self):
+        return f"Exercice {self.date_debut} - {self.date_fin}"
+
     @staticmethod
     def get_exercice_actuel():
         try:
             return ExerciceComptable.objects.get(est_actuel=True)
         except ExerciceComptable.DoesNotExist:
             raise ValidationError("Aucun exercice actuel trouvé.")
-
-    def __str__(self):
-        return f"Exercice {self.date_debut} - {self.date_fin}"
 
     def ouvrir_exercice(self):
         self.est_ouvert = True
