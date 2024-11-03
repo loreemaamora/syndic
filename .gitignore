@@ -1,0 +1,58 @@
+# Fichiers de migration
+*/migrations/*.pyc
+
+# Python
+*.py[cod]
+__pycache__/
+*.pyo
+*.pyd
+
+# Virtual Environment
+myenv/
+venv/
+env/
+.venv/
+.env/
+
+# Django
+*.log
+*.pot
+*.mo
+*.sqlite3
+db.sqlite3
+media/
+staticfiles/
+static/
+
+# Node modules
+node_modules/
+
+# Environment variables file
+*.env
+
+# Coverage reports
+htmlcov/
+.tox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# PyCharm
+.idea/
+
+# Database
+*.json
+
+# Local development environment files
+settings_dev.py
+divers/
+config/wsgi.py
