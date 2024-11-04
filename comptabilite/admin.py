@@ -1,11 +1,12 @@
 from django.contrib import admin
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from .models import Compte, ExerciceComptable, EcritureComptable, Transaction
+from .models import Compte, ExerciceComptable, SoldeExerciceCompte, EcritureComptable, Transaction
 
 # Enregistrement des modèles
 admin.site.register(Compte)
 admin.site.register(ExerciceComptable)
+admin.site.register(SoldeExerciceCompte)
 admin.site.register(EcritureComptable)
 
 # Inline pour les écritures comptables
