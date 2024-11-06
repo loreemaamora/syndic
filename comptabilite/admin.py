@@ -4,10 +4,23 @@ from django.db import transaction
 from .models import Compte, ExerciceComptable, SoldeExerciceCompte, EcritureComptable, Transaction
 
 # Enregistrement des modèles
-admin.site.register(Compte)
-admin.site.register(ExerciceComptable)
 admin.site.register(SoldeExerciceCompte)
 admin.site.register(EcritureComptable)
+
+class CompteAdmin(admin.ModelAdmin):
+    list_display = ('compte', 'libelle', 'solde_initial_display', 'solde_actuel_display')
+
+    def solde_initial_display(self, obj):
+        exercice = ExerciceComptable.get_exercice_actuel()
+        return obj.get_solde_initial(exercice)
+    solde_initial_display.short_description = 'Solde Initial'
+
+    def solde_actuel_display(self, obj):
+        exercice = ExerciceComptable.get_exercice_actuel()
+        return obj.get_solde_actuel(exercice)
+    solde_actuel_display.short_description = 'Solde Actuel'
+
+admin.site.register(Compte, CompteAdmin)
 
 # Inline pour les écritures comptables
 class EcritureComptableInline(admin.TabularInline):
@@ -37,3 +50,17 @@ class TransactionAdmin(admin.ModelAdmin):
 
 # Enregistrement de TransactionAdmin pour Transaction
 admin.site.register(Transaction, TransactionAdmin)
+
+# Configuration de l'admin pour ExerciceComptable
+class ExerciceComptableAdmin(admin.ModelAdmin):
+    list_display = ('date_debut', 'date_fin', 'est_ouvert', 'est_actuel')
+    actions = ['close_exercice']
+
+    def close_exercice(self, request, queryset):
+        for exercice in queryset.all():
+            exercice.close_exercice()
+        self.message_user(request, "Les exercices sélectionnés ont été clôturés.")
+    close_exercice.short_description = "Clôturer les exercices sélectionnés"
+
+# Enregistrement de ExerciceComptableAdmin pour ExerciceComptable
+admin.site.register(ExerciceComptable, ExerciceComptableAdmin)
