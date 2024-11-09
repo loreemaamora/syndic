@@ -5,7 +5,6 @@ from .models import Compte, ExerciceComptable, SoldeExerciceCompte, EcritureComp
 
 # Enregistrement des modèles
 admin.site.register(SoldeExerciceCompte)
-admin.site.register(EcritureComptable)
 
 class CompteAdmin(admin.ModelAdmin):
     list_display = ('compte', 'libelle', 'solde_initial_display', 'solde_actuel_display')
@@ -21,6 +20,20 @@ class CompteAdmin(admin.ModelAdmin):
     solde_actuel_display.short_description = 'Solde Actuel'
 
 admin.site.register(Compte, CompteAdmin)
+
+class EcritureComptableAdmin(admin.ModelAdmin):
+    list_display = ('compte', 'debit', 'credit', 'date_operation')
+
+    def debit(self, obj):
+        return obj.montant if obj.type_ecriture == 'DB' else 0.0
+
+    def credit(self, obj):
+        return obj.montant if obj.type_ecriture == 'CR' else 0.0
+
+    def date_operation(self, obj):
+        return obj.transaction.date_operation
+
+admin.site.register(EcritureComptable, EcritureComptableAdmin)
 
 # Inline pour les écritures comptables
 class EcritureComptableInline(admin.TabularInline):
