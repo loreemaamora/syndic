@@ -3,26 +3,29 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from .models import Compte, ExerciceComptable, SoldeExerciceCompte, EcritureComptable, Transaction
 
+from import_export.admin import ImportExportModelAdmin
+from .resources import CompteResource
+
 # Enregistrement des modèles
 class SoldeExerciceCompteAdmin(admin.ModelAdmin):
     list_display = ('compte', 'exercice', 'solde_initial', 'solde_actuel')
 
 admin.site.register(SoldeExerciceCompte,SoldeExerciceCompteAdmin)
 
-class CompteAdmin(admin.ModelAdmin):
-    list_display = ('compte', 'libelle', 'solde_initial_display')#, 'solde_actuel_display')
+@admin.register(Compte)
+class CompteAdmin(ImportExportModelAdmin):
+    resource_class = CompteResource
+    list_display = ('compte', 'libelle', 'solde_initial_display', 'solde_actuel_display')
 
     def solde_initial_display(self, obj):
         exercice = ExerciceComptable.get_exercice_actuel()
         return obj.get_solde_initial(exercice)
     solde_initial_display.short_description = 'Solde Initial'
 
-    # def solde_actuel_display(self, obj):
-    #     exercice = ExerciceComptable.get_exercice_actuel()
-    #     return obj.get_solde_actuel(exercice)
-    # solde_actuel_display.short_description = 'Solde Actuel'
-
-admin.site.register(Compte, CompteAdmin)
+    def solde_actuel_display(self, obj):
+        exercice = ExerciceComptable.get_exercice_actuel()
+        return obj.get_solde_actuel(exercice)
+    solde_actuel_display.short_description = 'Solde Actuel'
 
 class EcritureComptableAdmin(admin.ModelAdmin):
     list_display = ('compte', 'debit', 'credit', 'date_operation')

@@ -34,26 +34,22 @@ class Compte(models.Model):
         self.libelle = self.libelle.upper()
         super().save(*args, **kwargs)
 
+    def get_solde_exercice(self, exercice):
+        return SoldeExerciceCompte.objects.get_or_create(compte=self, exercice=exercice)
+
+    def get_solde_actuel(self, exercice):
+        solde_exercice, _ = self.get_solde_exercice(exercice)
+        return solde_exercice.solde_actuel
+
     def get_solde_initial(self, exercice):
-        solde_exercice = SoldeExerciceCompte.objects.filter(compte=self, exercice=exercice)
-        return solde_exercice.first().solde_initial if solde_exercice.exists() else decimal.Decimal(0.0)
-
-
-    # def get_solde_actuel(self, exercice):
-    #     solde_exercice = SoldeExerciceCompte.objects.filter(compte=self, exercice=exercice)
-    #     return solde_exercice.first().solde_actuel if solde_exercice.exists else decimal.Decimal(0.0)
+        solde_exercice, _ = self.get_solde_exercice(exercice)
+        return solde_exercice.solde_initial
 
     def mettre_a_jour_solde(self, exercice):
-        solde_exercice, _ = SoldeExerciceCompte.objects.get_or_create(
-            compte=self, exercice=exercice,
-            defaults={
-                'solde_initial': self.get_solde_initial(exercice),
-                'solde_actuel': self.get_solde_initial(exercice)
-            }
-        )
+        solde_exercice, _ = self.get_solde_exercice(exercice)
         total_debit = self.ecritures.filter(type_ecriture='DB', transaction__exercice=exercice).aggregate(Sum('montant'))['montant__sum'] or decimal.Decimal(0.0)
         total_credit = self.ecritures.filter(type_ecriture='CR', transaction__exercice=exercice).aggregate(Sum('montant'))['montant__sum'] or decimal.Decimal(0.0)
-        solde_exercice.solde_actuel = solde_exercice.solde_initial + total_debit - total_credit
+        solde_exercice.solde_actuel = decimal.Decimal(solde_exercice.solde_initial) + decimal.Decimal(total_debit) - decimal.Decimal(total_credit)
         solde_exercice.save()
 
 class ExerciceComptable(models.Model):
@@ -79,9 +75,9 @@ class ExerciceComptable(models.Model):
             raise ValidationError(f"L'exercice {self} est déjà clôturé.")
 
         with transaction.atomic():            
-            compte_resultat_classe8 = Compte.objects.get(compte='890')
+            compte_resultat_classe8 = Compte.objects.get(compte="'890")
             self.clore_comptes_produits_charges(compte_resultat_classe8)
-            compte_resultat_classe1 = Compte.objects.get(compte='119')
+            compte_resultat_classe1 = Compte.objects.get(compte="'119")
             self.reporter_resultat_net(self.calculer_resultat_net(), compte_resultat_classe8, compte_resultat_classe1)
             new_exercice, created = ExerciceComptable.objects.get_or_create(
                 date_debut=self.date_fin + timedelta(days=1),
@@ -106,7 +102,6 @@ class ExerciceComptable(models.Model):
     
     @transaction.atomic
     def clore_comptes_produits_charges(self, compte_resultat):
-
         # Calcul du résultat net
         resultat_net = self.calculer_resultat_net()
 
@@ -121,37 +116,46 @@ class ExerciceComptable(models.Model):
         comptes_produits = Compte.objects.filter(type_compte='recette')
         for compte in comptes_produits:
             solde = compte.get_solde_actuel(self)
-            if solde > 0:
-                EcritureComptable.objects.create(
-                    compte=compte,
-                    montant=solde,
-                    type_ecriture='DB',
-                    transaction=transaction_cloture
-                )
-                EcritureComptable.objects.create(
-                    compte=compte_resultat,
-                    montant=solde,
-                    type_ecriture='CR',
-                    transaction=transaction_cloture
-                )
+            
+            # Ignorer les comptes avec un solde nul
+            if solde == 0:
+                continue
+            
+            # Créer l'écriture pour le compte de produit
+            EcritureComptable.objects.create(
+                compte=compte,
+                montant=abs(solde),
+                type_ecriture='CR' if solde > 0 else 'DB',
+                transaction=transaction_cloture
+            )
+
+            # Créer l'écriture pour le compte de résultat
+            EcritureComptable.objects.create(
+                compte=compte_resultat,
+                montant=abs(solde),
+                type_ecriture='DB' if solde > 0 else 'CR',
+                transaction=transaction_cloture
+            )
+
 
         # Clôturer les comptes de charges
         comptes_charges = Compte.objects.filter(type_compte='depense')
         for compte in comptes_charges:
             solde = compte.get_solde_actuel(self)
-            if solde > 0:
-                EcritureComptable.objects.create(
-                    compte=compte,
-                    montant=solde,
-                    type_ecriture='CR',
-                    transaction=transaction_cloture
-                )
-                EcritureComptable.objects.create(
-                    compte=compte_resultat,
-                    montant=solde,
-                    type_ecriture='DB',
-                    transaction=transaction_cloture
-                )
+            if solde == 0:
+                continue
+            EcritureComptable.objects.create(
+                compte=compte,
+                montant=abs(solde),
+                type_ecriture = 'CR' if solde > 0 else 'DB',
+                transaction=transaction_cloture
+            )
+            EcritureComptable.objects.create(
+                compte=compte_resultat,
+                montant=abs(solde),
+                type_ecriture = 'CR' if solde < 0 else 'DB',
+                transaction=transaction_cloture
+            )
 
     def calculer_resultat_net(self):
         total_produits = EcritureComptable.objects.filter(
@@ -177,13 +181,13 @@ class ExerciceComptable(models.Model):
         EcritureComptable.objects.create(
             compte=compte_resultat_classe8,
             montant=abs(resultat_net),
-            type_ecriture='DB' if resultat_net < 0 else 'CR',
+            type_ecriture='CR' if resultat_net < 0 else 'DB',
             transaction=transaction_report
         )
         EcritureComptable.objects.create(
             compte=compte_resultat_classe1,
             montant=abs(resultat_net),
-            type_ecriture='CR' if resultat_net < 0 else 'DB',
+            type_ecriture='CR' if resultat_net > 0 else 'DB',
             transaction=transaction_report
         )
 

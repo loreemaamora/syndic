@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'authemail',
 	'accounts',
     'comptabilite',
+    'import_export'
 ]
 
 AUTH_USER_MODEL = 'accounts.MyUser'
