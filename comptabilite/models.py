@@ -84,9 +84,7 @@ class ExerciceComptable(models.Model):
                 date_fin=self.date_fin + timedelta(days=365),
                 defaults={'est_ouvert': True}
             )
-            print("Avant l'appel de report_soldes_comptes")
             self.report_soldes_comptes(new_exercice)
-            print("Après l'appel de report_soldes_comptes")
             self.est_ouvert = False
             self.save()
         return new_exercice
