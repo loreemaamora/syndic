@@ -4,20 +4,23 @@ from django.db import transaction
 from .models import Compte, ExerciceComptable, SoldeExerciceCompte, EcritureComptable, Transaction
 
 # Enregistrement des modèles
-admin.site.register(SoldeExerciceCompte)
+class SoldeExerciceCompteAdmin(admin.ModelAdmin):
+    list_display = ('compte', 'exercice', 'solde_initial', 'solde_actuel')
+
+admin.site.register(SoldeExerciceCompte,SoldeExerciceCompteAdmin)
 
 class CompteAdmin(admin.ModelAdmin):
-    list_display = ('compte', 'libelle', 'solde_initial_display', 'solde_actuel_display')
+    list_display = ('compte', 'libelle', 'solde_initial_display')#, 'solde_actuel_display')
 
     def solde_initial_display(self, obj):
         exercice = ExerciceComptable.get_exercice_actuel()
         return obj.get_solde_initial(exercice)
     solde_initial_display.short_description = 'Solde Initial'
 
-    def solde_actuel_display(self, obj):
-        exercice = ExerciceComptable.get_exercice_actuel()
-        return obj.get_solde_actuel(exercice)
-    solde_actuel_display.short_description = 'Solde Actuel'
+    # def solde_actuel_display(self, obj):
+    #     exercice = ExerciceComptable.get_exercice_actuel()
+    #     return obj.get_solde_actuel(exercice)
+    # solde_actuel_display.short_description = 'Solde Actuel'
 
 admin.site.register(Compte, CompteAdmin)
 

@@ -1,9 +1,16 @@
+# Importations standard de Python
+import os
+import decimal
 from datetime import timedelta
+
+# Importations Django
 from django.utils import timezone
 from django.db import models, transaction
+from django.db.models import Sum, F
+from django.db.models.signals import post_save, post_delete
 from django.core.exceptions import ValidationError
-from django.db.models import Sum
-import decimal
+from django.dispatch import receiver
+
 
 class Compte(models.Model):
     compte = models.CharField(max_length=20, unique=True)
@@ -12,32 +19,37 @@ class Compte(models.Model):
         ('actif', 'Actif'),
         ('passif', 'Passif'),
         ('recette', 'Recette'),
-        ('depense', 'Dépense')
+        ('depense', 'Dépense'),
+        ('ajustement', 'Ajustement')
     ])
 
     class Meta:
         ordering = ['compte']
 
     def __str__(self):
-        exercice = ExerciceComptable.get_exercice_actuel()
-        return f"{self.compte} - {self.libelle.upper()} - {self.get_solde_initial(exercice)} - {self.get_solde_actuel(exercice)}"
+        # exercice = ExerciceComptable.get_exercice_actuel()
+        return f"{self.compte} - {self.libelle.upper()}"
 
     def save(self, *args, **kwargs):
         self.libelle = self.libelle.upper()
         super().save(*args, **kwargs)
 
     def get_solde_initial(self, exercice):
-        solde_exercice = SoldeExerciceCompte.objects.filter(compte=self, exercice=exercice).first()
-        return solde_exercice.solde_initial if solde_exercice else decimal.Decimal(0.0)
+        solde_exercice = SoldeExerciceCompte.objects.filter(compte=self, exercice=exercice)
+        return solde_exercice.first().solde_initial if solde_exercice.exists() else decimal.Decimal(0.0)
 
-    def get_solde_actuel(self, exercice):
-        solde_exercice = SoldeExerciceCompte.objects.filter(compte=self, exercice=exercice).first()
-        return solde_exercice.solde_actuel if solde_exercice else decimal.Decimal(0.0)
+
+    # def get_solde_actuel(self, exercice):
+    #     solde_exercice = SoldeExerciceCompte.objects.filter(compte=self, exercice=exercice)
+    #     return solde_exercice.first().solde_actuel if solde_exercice.exists else decimal.Decimal(0.0)
 
     def mettre_a_jour_solde(self, exercice):
-        solde_exercice, created = SoldeExerciceCompte.objects.get_or_create(
+        solde_exercice, _ = SoldeExerciceCompte.objects.get_or_create(
             compte=self, exercice=exercice,
-            defaults={'solde_initial': decimal.Decimal(0.0), 'solde_actuel': decimal.Decimal(0.0)}
+            defaults={
+                'solde_initial': self.get_solde_initial(exercice),
+                'solde_actuel': self.get_solde_initial(exercice)
+            }
         )
         total_debit = self.ecritures.filter(type_ecriture='DB', transaction__exercice=exercice).aggregate(Sum('montant'))['montant__sum'] or decimal.Decimal(0.0)
         total_credit = self.ecritures.filter(type_ecriture='CR', transaction__exercice=exercice).aggregate(Sum('montant'))['montant__sum'] or decimal.Decimal(0.0)
@@ -60,34 +72,121 @@ class ExerciceComptable(models.Model):
 
     @staticmethod
     def get_exercice_actuel():
-        try:
-            return ExerciceComptable.objects.get(est_actuel=True)
-        except ExerciceComptable.DoesNotExist:
-            raise ValidationError("Aucun exercice actuel trouvé.")
+        return ExerciceComptable.objects.filter(est_actuel=True).first()
 
     def close_exercice(self):
         if not self.est_ouvert:
             raise ValidationError(f"L'exercice {self} est déjà clôturé.")
 
-        with transaction.atomic():
-            self.est_ouvert = False
-            self.save()
+        with transaction.atomic():            
+            compte_resultat_classe8 = Compte.objects.get(compte='890')
+            self.clore_comptes_produits_charges(compte_resultat_classe8)
+            compte_resultat_classe1 = Compte.objects.get(compte='119')
+            self.reporter_resultat_net(self.calculer_resultat_net(), compte_resultat_classe8, compte_resultat_classe1)
             new_exercice, created = ExerciceComptable.objects.get_or_create(
                 date_debut=self.date_fin + timedelta(days=1),
                 date_fin=self.date_fin + timedelta(days=365),
                 defaults={'est_ouvert': True}
             )
+            print("Avant l'appel de report_soldes_comptes")
             self.report_soldes_comptes(new_exercice)
+            print("Après l'appel de report_soldes_comptes")
+            self.est_ouvert = False
+            self.save()
         return new_exercice
 
     def report_soldes_comptes(self, exercice_suivant):
-        comptes = Compte.objects.filter(type_compte__in=['actif', 'passif']).select_related('soldes_exercice')
+        comptes = Compte.objects.filter(type_compte__in=['actif', 'passif'])
         for compte in comptes:
             solde_final = compte.get_solde_actuel(self)
             SoldeExerciceCompte.objects.update_or_create(
                 compte=compte, exercice=exercice_suivant,
                 defaults={'solde_initial': solde_final, 'solde_actuel': solde_final}
             )
+    
+    @transaction.atomic
+    def clore_comptes_produits_charges(self, compte_resultat):
+
+        # Calcul du résultat net
+        resultat_net = self.calculer_resultat_net()
+
+        # Créer une transaction pour la clôture
+        transaction_cloture = Transaction.objects.create(
+            exercice=self,
+            date_operation=self.date_fin,
+            libelle="Clôture des comptes de produits et charges"
+        )
+
+        # Clôturer les comptes de produits
+        comptes_produits = Compte.objects.filter(type_compte='recette')
+        for compte in comptes_produits:
+            solde = compte.get_solde_actuel(self)
+            if solde > 0:
+                EcritureComptable.objects.create(
+                    compte=compte,
+                    montant=solde,
+                    type_ecriture='DB',
+                    transaction=transaction_cloture
+                )
+                EcritureComptable.objects.create(
+                    compte=compte_resultat,
+                    montant=solde,
+                    type_ecriture='CR',
+                    transaction=transaction_cloture
+                )
+
+        # Clôturer les comptes de charges
+        comptes_charges = Compte.objects.filter(type_compte='depense')
+        for compte in comptes_charges:
+            solde = compte.get_solde_actuel(self)
+            if solde > 0:
+                EcritureComptable.objects.create(
+                    compte=compte,
+                    montant=solde,
+                    type_ecriture='CR',
+                    transaction=transaction_cloture
+                )
+                EcritureComptable.objects.create(
+                    compte=compte_resultat,
+                    montant=solde,
+                    type_ecriture='DB',
+                    transaction=transaction_cloture
+                )
+
+    def calculer_resultat_net(self):
+        total_produits = EcritureComptable.objects.filter(
+            compte__type_compte='recette', transaction__exercice=self, type_ecriture='CR'
+        ).aggregate(total=Sum(F('montant')))['total'] or decimal.Decimal(0.0)
+
+        total_charges = EcritureComptable.objects.filter(
+            compte__type_compte='depense', transaction__exercice=self, type_ecriture='DB'
+        ).aggregate(total=Sum(F('montant')))['total'] or decimal.Decimal(0.0)
+
+        return total_produits - total_charges
+
+
+    def reporter_resultat_net(self, resultat_net, compte_resultat_classe8, compte_resultat_classe1):
+
+        # Créer une transaction pour le report du résultat
+        transaction_report = Transaction.objects.create(
+            exercice=self,
+            date_operation=self.date_fin,
+            libelle="Report du résultat net"
+        )
+
+        EcritureComptable.objects.create(
+            compte=compte_resultat_classe8,
+            montant=abs(resultat_net),
+            type_ecriture='DB' if resultat_net < 0 else 'CR',
+            transaction=transaction_report
+        )
+        EcritureComptable.objects.create(
+            compte=compte_resultat_classe1,
+            montant=abs(resultat_net),
+            type_ecriture='CR' if resultat_net < 0 else 'DB',
+            transaction=transaction_report
+        )
+
 
 class Transaction(models.Model):
     date_creation = models.DateField(auto_now_add=True)
@@ -104,7 +203,13 @@ class Transaction(models.Model):
 
     def save(self, *args, **kwargs):
         self.libelle = self.libelle.upper()
+        self.clean_justif()
+        if self.justif:
+            self.justif.name = self.generate_filename()
         super().save(*args, **kwargs)
+        
+    def generate_filename(self):
+        return f"{self.date_operation.strftime('%Y%m%d')}_{self.libelle.replace(' ', '_')}_{self.justif.name.split('/')[-1]}"
 
     def delete(self, *args, **kwargs):
         if self.justif:
@@ -113,10 +218,37 @@ class Transaction(models.Model):
 
     def clean(self):
         if self.pk:
-            total_debit = self.ecritures.filter(type_ecriture='DB').aggregate(Sum('montant'))['montant__sum'] or decimal.Decimal(0.0)
-            total_credit = self.ecritures.filter(type_ecriture='CR').aggregate(Sum('montant'))['montant__sum'] or decimal.Decimal(0.0)
+            balance = self.ecritures.values('type_ecriture').annotate(total=Sum('montant'))
+            total_debit = next((b['total'] for b in balance if b['type_ecriture'] == 'DB'), decimal.Decimal(0.0))
+            total_credit = next((b['total'] for b in balance if b['type_ecriture'] == 'CR'), decimal.Decimal(0.0))
             if total_debit != total_credit:
                 raise ValidationError("Les écritures comptables doivent être équilibrées (Total débit = Total crédit).")
+
+    def clean_justif(self):
+        """
+        Méthode de validation du fichier justificatif.
+        """
+        # Vérifier si le justificatif est fourni
+        if self.justif:
+            # Obtenir l'extension du fichier
+            ext = os.path.splitext(self.justif.name)[1].lower()
+            # Définir les extensions autorisées
+            extensions_autorisees = ['.pdf', '.jpg', '.jpeg', '.png']
+            # Vérifier l'extension
+            if ext not in extensions_autorisees:
+                raise ValidationError(
+                    "Le justificatif doit être un fichier PDF ou une image (PDF, JPG, JPEG, PNG)."
+                )
+            # Limiter la taille à 1 MB
+            taille_max = 1 * 1024 * 1024  # 1 MB
+            if self.justif.size > taille_max:
+                raise ValidationError("La taille du justificatif ne doit pas dépasser 1 MB.")
+
+            # Vérifier la date du fichier justificatif
+            if self.date_operation > date.today():
+                raise ValidationError(
+                    "La date de l'opération ne peut pas être postérieure à la date d'aujourd'hui."
+                )
 
 class EcritureComptable(models.Model):
     compte = models.ForeignKey(Compte, on_delete=models.CASCADE, related_name='ecritures')
@@ -130,10 +262,6 @@ class EcritureComptable(models.Model):
     def __str__(self):
         return f"{self.compte.compte} - {self.type_ecriture} - {self.montant}"
 
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        self.compte.mettre_a_jour_solde(self.transaction.exercice)
-
 class SoldeExerciceCompte(models.Model):
     compte = models.ForeignKey(Compte, on_delete=models.CASCADE, related_name='soldes_exercice')
     exercice = models.ForeignKey(ExerciceComptable, on_delete=models.CASCADE, related_name='soldes_compte')
@@ -145,3 +273,16 @@ class SoldeExerciceCompte(models.Model):
 
     def __str__(self):
         return f"Solde {self.compte} pour {self.exercice}"
+
+    def save(self, *args, **kwargs):
+        if not self.exercice.est_ouvert:
+            raise ValidationError("Impossible de modifier le solde pour un exercice clôturé.")
+        super().save(*args, **kwargs)
+
+
+# Signaux
+
+@receiver(post_save, sender=EcritureComptable)
+@receiver(post_delete, sender=EcritureComptable)
+def update_solde(sender, instance, **kwargs):
+    instance.compte.mettre_a_jour_solde(instance.transaction.exercice)
