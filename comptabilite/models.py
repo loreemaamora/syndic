@@ -1,7 +1,8 @@
 # Importations standard de Python
 import os
 import decimal
-from datetime import timedelta
+from datetime import timedelta, date
+
 
 # Importations Django
 from django.utils import timezone
