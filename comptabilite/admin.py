@@ -44,7 +44,7 @@ admin.site.register(EcritureComptable, EcritureComptableAdmin)
 # Inline pour les écritures comptables
 class EcritureComptableInline(admin.TabularInline):
     model = EcritureComptable
-    extra = 1  # Nombre de formulaires vierges à afficher
+    extra = 2  # Nombre de formulaires vierges à afficher
 
 # Configuration de l'admin pour Transaction
 class TransactionAdmin(admin.ModelAdmin):
