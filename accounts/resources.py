@@ -1,13 +1,13 @@
 # accounts/resources.py
 from import_export import resources, fields
-from .models import LotIndividuel
+from .models import Lot
 
-class LotIndividuelResource(resources.ModelResource):
-    lot_individuel = fields.Field(attribute='lot_individuel', column_name='lot_individuel')
+class LotResource(resources.ModelResource):
+    lot_individuel = fields.Field(attribute='code', column_name='code')
 
     class Meta:
-        model = LotIndividuel
-        fields = ('lot_individuel', 'immeuble', 'proprietaire')
-        import_id_fields = ['lot_individuel']  # Utiliser 'compte' comme identifiant
+        model = Lot
+        fields = ('code', 'immeuble', 'proprietaire')
+        import_id_fields = ['code']
         skip_unchanged = True
         report_skipped = True

@@ -6,8 +6,8 @@ from django.contrib.auth import get_user_model
 from authemail.admin import EmailUserAdmin
 
 from import_export.admin import ImportExportModelAdmin
-from .resources import LotIndividuelResource
-from .models import LotIndividuel
+from .resources import LotResource
+from .models import Immeuble, Lot
 
 class MyUserAdmin(EmailUserAdmin):
 	fieldsets = (
@@ -22,8 +22,9 @@ class MyUserAdmin(EmailUserAdmin):
 
 admin.site.unregister(get_user_model())
 admin.site.register(get_user_model(), MyUserAdmin)
+admin.site.register(Immeuble)
 
-@admin.register(LotIndividuel)
-class LotIndividuelAdmin(ImportExportModelAdmin):
-    resource_class = LotIndividuelResource
-    list_display = ('lot_individuel', 'immeuble', 'proprietaire')
+@admin.register(Lot)
+class LotAdmin(ImportExportModelAdmin):
+    resource_class = LotResource
+    list_display = ('code', 'immeuble', 'proprietaire')

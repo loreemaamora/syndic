@@ -12,6 +12,8 @@ from django.db.models.signals import post_save, post_delete
 from django.core.exceptions import ValidationError
 from django.dispatch import receiver
 
+from accounts.models import Lot
+
 
 class Compte(models.Model):
     compte = models.CharField(max_length=20, unique=True)
@@ -195,8 +197,8 @@ class Transaction(models.Model):
     date_creation = models.DateField(auto_now_add=True)
     date_operation = models.DateField()
     libelle = models.CharField(max_length=255)
-    justif = models.FileField(upload_to='uploads/', null=True, blank=True)
-    exercice = models.ForeignKey(ExerciceComptable, on_delete=models.CASCADE, related_name='transactions', limit_choices_to={'est_ouvert': True})
+    justif = models.FileField(upload_to='transactions/', null=True, blank=True)
+    exercice = models.ForeignKey(ExerciceComptable, on_delete=models.CASCADE, related_name='transactions_exercice', limit_choices_to={'est_ouvert': True})
 
     class Meta:
         ordering = ['-date_operation']
@@ -282,6 +284,38 @@ class SoldeExerciceCompte(models.Model):
             raise ValidationError("Impossible de modifier le solde pour un exercice clôturé.")
         super().save(*args, **kwargs)
 
+class Abonnement(models.Model):
+    FREQUENCE_CHOICES = [
+        ('mensuel', 'Mensuel'),
+        ('trimestriel', 'Trimestriel'),
+        ('annuel', 'Annuel'),
+    ]
+
+    lot = models.ForeignKey(
+        'accounts.Lot',  # Spécifiez l'app cible
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_constraint=False  # Permet de garder la référence même si le lot est supprimé
+    )
+    montant = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Montant récurrent")
+    frequence = models.CharField(
+        max_length=20,
+        choices=FREQUENCE_CHOICES,
+        default='mensuel',
+        verbose_name="Fréquence de facturation"
+    )
+    date_debut = models.DateField(verbose_name="Date de début")
+    date_fin = models.DateField(null=True, blank=True, verbose_name="Date de fin (si résiliable)")
+    actif = models.BooleanField(default=True, verbose_name="Abonnement actif ?")
+    description = models.TextField(blank=True, verbose_name="Détails (ex: charges, services inclus)")
+
+    def __str__(self):
+        return f"Abonnement {self.frequence} - {self.lot} ({self.montant}€)"
+
+    class Meta:
+        verbose_name = "Abonnement"
+        verbose_name_plural = "Abonnements"
 
 # Signaux
 
