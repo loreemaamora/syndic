@@ -1,4 +1,4 @@
-#mysite/admin.py
+#mysite/accounts/admin.py
 #----
 
 from django.contrib import admin
@@ -22,9 +22,3 @@ class MyUserAdmin(EmailUserAdmin):
 
 admin.site.unregister(get_user_model())
 admin.site.register(get_user_model(), MyUserAdmin)
-admin.site.register(Immeuble)
-
-@admin.register(Lot)
-class LotAdmin(ImportExportModelAdmin):
-    resource_class = LotResource
-    list_display = ('code', 'immeuble', 'proprietaire')

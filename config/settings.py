@@ -42,6 +42,7 @@ INSTALLED_APPS = [
 	'rest_framework.authtoken',
     'authemail',
 	'accounts',
+    'patrimoine',
     'comptabilite',
     'import_export'
 ]

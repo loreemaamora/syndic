@@ -1,0 +1,50 @@
+.
+├── __init__.py
+├── __pycache__
+│   ├── __init__.cpython-310.pyc
+│   ├── admin.cpython-310.pyc
+│   ├── apps.cpython-310.pyc
+│   ├── models.cpython-310.pyc
+│   └── resources.cpython-310.pyc
+├── admin.py
+├── apps.py
+├── management
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   └── __init__.cpython-310.pyc
+│   └── commands
+│       ├── __init__.py
+│       ├── __pycache__
+│       │   ├── __init__.cpython-310.pyc
+│       │   ├── facturation_copro.cpython-310.pyc
+│       │   └── process_abonnements.cpython-310.pyc
+│       └── facturation_copro.py
+├── migrations
+│   ├── 0001_initial.py
+│   ├── 0002_alter_transaction_exercice_alter_transaction_justif.py
+│   ├── 0003_abonnement.py
+│   ├── 0004_alter_abonnement_lot.py
+│   ├── 0005_alter_abonnement_lot.py
+│   ├── __init__.py
+│   └── __pycache__
+│       ├── 0001_initial.cpython-310.pyc
+│       ├── 0002_alter_transaction_exercice_alter_transaction_justif.cpython-310.pyc
+│       ├── 0003_abonnement.cpython-310.pyc
+│       ├── 0004_alter_abonnement_lot.cpython-310.pyc
+│       ├── 0005_alter_abonnement_lot.cpython-310.pyc
+│       ├── 0006_alter_ecriturecomptable_options_compte_tiers_id_and_more.cpython-310.pyc
+│       ├── 0007_alter_compte_tiers_type_and_more.cpython-310.pyc
+│       ├── 0008_rename_tiers_id_ecriturecomptable_object_id_and_more.cpython-310.pyc
+│       └── __init__.cpython-310.pyc
+├── models
+│   ├── __init__.py
+│   ├── compte_model.py
+│   ├── exercice_comptable_model.py
+│   └── solde_exercice_compte.py
+├── models.py
+├── resources.py
+├── tests.py
+├── tree.txt
+└── views.py
+
+8 directories, 39 files

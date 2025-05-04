@@ -12,8 +12,6 @@ from django.db.models.signals import post_save, post_delete
 from django.core.exceptions import ValidationError
 from django.dispatch import receiver
 
-from accounts.models import Lot
-
 
 class Compte(models.Model):
     compte = models.CharField(max_length=20, unique=True)
@@ -292,7 +290,7 @@ class Abonnement(models.Model):
     ]
 
     lot = models.ForeignKey(
-        'accounts.Lot',  # Spécifiez l'app cible
+        'patrimoine.Lot',  # Spécifiez l'app cible
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
