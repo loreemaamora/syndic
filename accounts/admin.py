@@ -6,8 +6,6 @@ from django.contrib.auth import get_user_model
 from authemail.admin import EmailUserAdmin
 
 from import_export.admin import ImportExportModelAdmin
-from .resources import LotResource
-from .models import Immeuble, Lot
 
 class MyUserAdmin(EmailUserAdmin):
 	fieldsets = (
