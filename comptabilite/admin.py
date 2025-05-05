@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from .models import Compte, ExerciceComptable, SoldeExerciceCompte, EcritureComptable, Transaction, Abonnement
+from .models import Compte, ExerciceComptable, SoldeExerciceCompte, EcritureComptable, Transaction, Abonnement, Fournisseur
 
 from import_export.admin import ImportExportModelAdmin
 from .resources import CompteResource
@@ -84,3 +84,4 @@ class ExerciceComptableAdmin(admin.ModelAdmin):
 # Enregistrement de ExerciceComptableAdmin pour ExerciceComptable
 admin.site.register(ExerciceComptable, ExerciceComptableAdmin)
 admin.site.register(Abonnement) # abonnement des lots
+admin.site.register(Fournisseur)

@@ -41,7 +41,7 @@ class Abonnement(models.Model):
     )
 
     def __str__(self):
-        return f"Abonnement {self.frequence} - {self.lot} ({self.montant}€)"
+        return f"Abonnement {self.frequence} - {self.lot} ({self.montant}MAD)"
 
     class Meta:
         verbose_name = "Abonnement"

@@ -85,7 +85,8 @@ class Command(BaseCommand):
                         compte=compte_client,
                         montant=abo.montant,
                         type_ecriture='DB',
-                        transaction=transac
+                        transaction=transac,
+                        lot=abo.lot
                     ),
                     EcritureComptable(
                         compte=compte_recette,
