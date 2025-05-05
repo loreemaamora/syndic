@@ -44,6 +44,11 @@ class Command(BaseCommand):
                 defaults={'libelle': 'Copropriétaire individualisé', 'type_compte': 'actif'}
             )
 
+            compte_avance, _ = Compte.objects.get_or_create(
+                compte="4421", 
+                defaults={'libelle': 'Copropriétaire – avances', 'type_compte': 'passif'}
+            )
+
             # Préchargement des transactions existantes pour le mois
             transactions_existantes = Transaction.objects.filter(
                 date_operation__gte=debut_mois,
@@ -74,30 +79,67 @@ class Command(BaseCommand):
                     existants += 1
                     continue
 
+                # Calcul du solde du compte avance pour ce lot
+                solde_avance = EcritureComptable.objects.filter(
+                    lot=abo.lot,
+                    compte=compte_avance
+                ).aggregate(
+                    solde=models.Sum(
+                        models.Case(
+                            models.When(type_ecriture='CR', then=models.F('montant')),
+                            models.When(type_ecriture='DB', then=-models.F('montant')),
+                            output_field=models.DecimalField()
+                        )
+                    )
+                )['solde'] or 0
+
+                self.stdout.write(f" Solde avance pour {abo.lot} : {solde_avance}")
+                self.stdout.write(f" Montant abonnement {abo.lot} : {abo.montant}")
+
                 transac = Transaction.objects.create(
                     date_operation=aujourdhui,
                     libelle=libelle,
                     exercice=exercice
                 )
 
-                EcritureComptable.objects.bulk_create([
-                    EcritureComptable(
-                        compte=compte_client,
-                        montant=abo.montant,
-                        type_ecriture='DB',
-                        transaction=transac,
-                        lot=abo.lot
-                    ),
-                    EcritureComptable(
-                        compte=compte_recette,
-                        montant=abo.montant,
-                        type_ecriture='CR',
-                        transaction=transac
-                    )
-                ])
+                if solde_avance >= abo.montant:
+                    # Le solde avance couvre la facture - on débite le compte avance
+                    EcritureComptable.objects.bulk_create([
+                        EcritureComptable(
+                            compte=compte_avance,
+                            montant=abo.montant,
+                            type_ecriture='DB',
+                            transaction=transac,
+                            lot=abo.lot
+                        ),
+                        EcritureComptable(
+                            compte=compte_recette,
+                            montant=abo.montant,
+                            type_ecriture='CR',
+                            transaction=transac
+                        )
+                    ])
+                    self.stdout.write(f"✅ {str(abo.lot):5} : {abo.montant:8.2f} MAD (payé par avance)")
+                else:
+                    # Le solde avance ne couvre pas la facture - on débite le compte client
+                    EcritureComptable.objects.bulk_create([
+                        EcritureComptable(
+                            compte=compte_client,
+                            montant=abo.montant,
+                            type_ecriture='DB',
+                            transaction=transac,
+                            lot=abo.lot
+                        ),
+                        EcritureComptable(
+                            compte=compte_recette,
+                            montant=abo.montant,
+                            type_ecriture='CR',
+                            transaction=transac
+                        )
+                    ])
+                    self.stdout.write(f"✅ {str(abo.lot):5} : {abo.montant:8.2f} MAD (facturé au client)")
 
                 nouveaux += 1
-                self.stdout.write(f"✅ {str(abo.lot):5} : {abo.montant:8.2f} MAD")
 
         self.stdout.write(f"\n📊 Récapitulatif:")
         self.stdout.write(f"• Factures trouvées    : {total}")
