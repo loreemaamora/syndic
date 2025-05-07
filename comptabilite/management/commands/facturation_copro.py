@@ -93,9 +93,6 @@ class Command(BaseCommand):
                     )
                 )['solde'] or 0
 
-                self.stdout.write(f" Solde avance pour {abo.lot} : {solde_avance}")
-                self.stdout.write(f" Montant abonnement {abo.lot} : {abo.montant}")
-
                 transac = Transaction.objects.create(
                     date_operation=aujourdhui,
                     libelle=libelle,
